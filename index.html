@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Alpa Site | Чат поддержки + Посты</title>
+    <title>Alpa Site | Чат поддержки</title>
     <style>
         * {
             margin: 0;
@@ -24,7 +24,6 @@
             padding: 1.5rem 1.5rem 2rem;
         }
 
-        /* модальное окно */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -37,7 +36,6 @@
             align-items: center;
             justify-content: center;
             z-index: 2000;
-            transition: opacity 0.25s ease;
         }
         .modal-card {
             background: #0f0f0f;
@@ -54,11 +52,6 @@
             margin-bottom: 0.5rem;
             color: #ff6b5c;
         }
-        .modal-card p {
-            color: #aaa;
-            margin-bottom: 1.2rem;
-            font-size: 0.9rem;
-        }
         .modal-card input {
             width: 100%;
             background: #1a1a1a;
@@ -69,7 +62,6 @@
             font-size: 1rem;
             margin-bottom: 0.8rem;
             outline: none;
-            transition: 0.2s;
         }
         .modal-card input:focus {
             border-color: #ff6b5c;
@@ -86,27 +78,16 @@
             color: #0a0a0a;
             margin-top: 0.5rem;
         }
-        .modal-card button:hover {
-            background: #ff8a7c;
-            transform: scale(1.02);
-        }
         .modal-card .secondary-btn {
             background: transparent;
             border: 1px solid #ff6b5c;
             color: #ff6b5c;
             margin-top: 0.5rem;
         }
-        .modal-card .secondary-btn:hover {
-            background: #ff6b5c20;
-            transform: scale(1.02);
-        }
         .error-msg {
             color: #ff6b5c;
             font-size: 0.8rem;
-            margin: 0.5rem 0 0.2rem;
-            background: #ff6b5c10;
-            padding: 0.3rem;
-            border-radius: 40px;
+            margin: 0.5rem 0;
         }
         .generated-link {
             background: #111;
@@ -115,7 +96,6 @@
             padding: 0.8rem;
             margin: 1rem 0;
             word-break: break-all;
-            font-size: 0.75rem;
             font-family: monospace;
             color: #ffaa66;
         }
@@ -159,6 +139,7 @@
         .server-status.online { color: #6bff6b; border-color: #6bff6b40; }
         .server-status.maintenance { color: #ffaa66; border-color: #ffaa6640; }
         .server-status.offline { color: #ff6b5c; border-color: #ff6b5c40; }
+
         .tabs {
             display: flex;
             flex-wrap: wrap;
@@ -180,11 +161,19 @@
         }
         .tab-btn:hover { color: #fff; background: #1a1a1a; }
         .tab-btn.active { background: #ff6b5c20; color: #ff6b5c; border: 1px solid #ff6b5c60; }
+
         .tab-content { display: none; animation: fadeUp 0.35s ease; }
         .tab-content.active-content { display: block; }
-        @keyframes fadeUp { from { opacity: 0; transform: translateY(8px);} to { opacity: 1; transform: translateY(0);} }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
 
-        .news-grid { display: flex; flex-direction: column; gap: 1.2rem; }
+        .news-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+        }
         .news-card {
             background: #0f0f0f;
             border: 1px solid #262626;
@@ -377,7 +366,7 @@
             <div class="setting-item"><span>🎮 Аккаунт: <span class="nickname" id="settingsNick"></span></span><span>✅ защищён</span></div>
         </div>
     </div>
-    <footer>Alpa Site · Посты создаются в админ-панели · Бан за спам</footer>
+    <footer>Alpa Site · Регистрация на сервере</footer>
 </div>
 
 <div id="authModal" class="modal-overlay"><div class="modal-card" id="modalCard"></div></div>
@@ -388,12 +377,52 @@
     let currentCategory = "kills";
     let isMaintenance = false;
     let updateInterval = null;
-    let usersDB = JSON.parse(localStorage.getItem("alpa_users")) || {};
     
     const modal = document.getElementById('authModal');
     const modalCard = document.getElementById('modalCard');
     const appContainer = document.getElementById('app');
     const serverStatusSpan = document.getElementById('serverStatus');
+    
+    // ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
+    function simpleHash(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            hash = ((hash << 5) - hash) + str.charCodeAt(i);
+            hash |= 0;
+        }
+        return hash.toString(16);
+    }
+    
+    function generateLoginLink(nickname, rawPassword) {
+        return `alpalogin=${encodeURIComponent(nickname)}?${simpleHash(rawPassword)}`;
+    }
+    
+    // ========== РЕГИСТРАЦИЯ НА СЕРВЕРЕ ==========
+    async function registerOnServer(nickname, passwordHash) {
+        try {
+            const response = await fetch(`${API_BASE}/register`, {
+                method: "POST",
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nickname, password_hash: passwordHash })
+            });
+            return await response.json();
+        } catch(e) {
+            return { success: false, error: "Ошибка соединения" };
+        }
+    }
+    
+    async function loginOnServer(nickname, passwordHash) {
+        try {
+            const response = await fetch(`${API_BASE}/login`, {
+                method: "POST",
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nickname, password_hash: passwordHash })
+            });
+            return await response.json();
+        } catch(e) {
+            return { success: false, error: "Ошибка соединения" };
+        }
+    }
     
     // ========== ПРОВЕРКА СЕРВЕРА И ТЕХОБСЛУЖИВАНИЯ ==========
     async function checkMaintenanceAndServer() {
@@ -588,22 +617,9 @@
     
     function escapeHtml(str) { return String(str).replace(/[&<>]/g, function(m){ if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
     
-    // ========== РЕГИСТРАЦИЯ И ВХОД ==========
-    function saveUsersToLocal() { localStorage.setItem("alpa_users", JSON.stringify(usersDB)); }
-    function simpleHash(str) { let hash=0; for(let i=0;i<str.length;i++){ hash=((hash<<5)-hash)+str.charCodeAt(i); hash|=0; } return hash.toString(16); }
-    function generateLoginLink(nickname, rawPassword) { return `alpalogin=${encodeURIComponent(nickname)}?${simpleHash(rawPassword)}`; }
-    function verifyPassword(nickname, passwordHash) { return usersDB[nickname] && usersDB[nickname].passwordHash === passwordHash; }
-    function registerUser(nickname, rawPassword) {
-        if(!nickname||nickname.trim()==="") return { success: false, error: "Введите никнейм" };
-        if(usersDB[nickname]) return { success: false, error: "Ник уже занят" };
-        if(!rawPassword||rawPassword.length<3) return { success: false, error: "Пароль минимум 3 символа" };
-        usersDB[nickname] = { passwordHash: simpleHash(rawPassword), registered: Date.now() };
-        saveUsersToLocal();
-        return { success: true, nickname, rawPassword };
-    }
-    
+    // ========== РЕГИСТРАЦИЯ (СЕРВЕРНАЯ) ==========
     function renderRegisterMode() {
-        modalCard.innerHTML = `<h3>📝 Регистрация</h3><p>Создайте аккаунт для входа</p><input type="text" id="regNick" placeholder="Ваш никнейм"><input type="password" id="regPass" placeholder="Пароль (мин. 3 символа)"><div id="regError" class="error-msg"></div><button id="doRegisterBtn">Зарегистрироваться</button><button id="switchToLoginBtn" class="secondary-btn">🔑 У меня есть ключ → Войти</button><div class="hint">⚡ После регистрации вы получите уникальную ссылку для входа</div>`;
+        modalCard.innerHTML = `<h3>📝 Регистрация</h3><p>Создайте аккаунт для входа (данные сохранятся на сервере)</p><input type="text" id="regNick" placeholder="Ваш никнейм"><input type="password" id="regPass" placeholder="Пароль (мин. 3 символа)"><div id="regError" class="error-msg"></div><button id="doRegisterBtn">Зарегистрироваться</button><button id="switchToLoginBtn" class="secondary-btn">🔑 У меня есть ключ → Войти</button><div class="hint">⚡ После регистрации вы получите уникальную ссылку для входа</div>`;
         document.getElementById('doRegisterBtn')?.addEventListener('click', () => handleRegister());
         document.getElementById('switchToLoginBtn')?.addEventListener('click', () => renderLoginMode());
     }
@@ -612,10 +628,21 @@
         const nick = document.getElementById('regNick')?.value.trim();
         const pass = document.getElementById('regPass')?.value;
         const errorDiv = document.getElementById('regError');
-        if(!nick||!pass) { errorDiv.innerText = "Заполните оба поля"; return; }
-        const result = registerUser(nick, pass);
-        if(!result.success) { errorDiv.innerText = result.error; return; }
-        const loginLink = generateLoginLink(result.nickname, result.rawPassword);
+        if (!nick || !pass) {
+            errorDiv.innerText = "Заполните оба поля";
+            return;
+        }
+        if (pass.length < 3) {
+            errorDiv.innerText = "Пароль должен быть минимум 3 символа";
+            return;
+        }
+        const passwordHash = simpleHash(pass);
+        const result = await registerOnServer(nick, passwordHash);
+        if (!result.success) {
+            errorDiv.innerText = result.error || "Ошибка регистрации";
+            return;
+        }
+        const loginLink = generateLoginLink(nick, pass);
         modalCard.innerHTML = `<h3>✅ Регистрация успешна!</h3><p>Ваша ссылка для входа:</p><div class="generated-link">${escapeHtml(loginLink)}</div><button id="copyLinkBtn">📋 Скопировать</button><button id="proceedToLoginBtn" class="secondary-btn">🚀 Войти сейчас</button><div class="hint">⚠️ Никому не передавайте ссылку — это ваш пароль!</div>`;
         document.getElementById('copyLinkBtn')?.addEventListener('click', () => { navigator.clipboard.writeText(loginLink); alert("Скопировано!"); });
         document.getElementById('proceedToLoginBtn')?.addEventListener('click', () => performLoginWithKey(loginLink));
@@ -632,19 +659,20 @@
     async function handleLoginWithKey() {
         const rawKey = document.getElementById('loginKeyInput')?.value.trim();
         const errorDiv = document.getElementById('loginError');
-        if(!rawKey) { errorDiv.innerText = "Введите ссылку"; return; }
+        if (!rawKey) { errorDiv.innerText = "Введите ссылку"; return; }
         const parsed = parseKeyFromString(rawKey);
-        if(!parsed) { errorDiv.innerText = "Неверный формат"; return; }
-        if(verifyPassword(parsed.nickname, parsed.passwordHash)) {
+        if (!parsed) { errorDiv.innerText = "Неверный формат"; return; }
+        const result = await loginOnServer(parsed.nickname, parsed.passwordHash);
+        if (result.success) {
             await finalizeLogin(parsed.nickname);
         } else {
-            errorDiv.innerText = "Неверный ключ";
+            errorDiv.innerText = result.error || "Неверный ключ";
         }
     }
     
     function performLoginWithKey(keyStr) {
         const parsed = parseKeyFromString(keyStr);
-        if(parsed && verifyPassword(parsed.nickname, parsed.passwordHash)) {
+        if (parsed) {
             finalizeLogin(parsed.nickname);
         } else {
             alert("Ошибка входа");
@@ -664,20 +692,20 @@
         initTabs();
         initCategoryButtons();
         await renderTop10('kills');
-        if(updateInterval) clearInterval(updateInterval);
+        if (updateInterval) clearInterval(updateInterval);
         updateInterval = setInterval(async () => {
             const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab;
-            if(activeTab === 'top') await renderTop10(currentCategory);
-            if(activeTab === 'news') await loadPosts();
+            if (activeTab === 'top') await renderTop10(currentCategory);
+            if (activeTab === 'news') await loadPosts();
             await checkMaintenanceAndServer();
         }, 30000);
     }
     
     function checkUrlForAutoLogin() {
         const keyParam = new URLSearchParams(window.location.search).get('key');
-        if(keyParam) {
+        if (keyParam) {
             const parsed = parseKeyFromString(keyParam);
-            if(parsed && verifyPassword(parsed.nickname, parsed.passwordHash)) {
+            if (parsed) {
                 finalizeLogin(parsed.nickname);
                 return true;
             }
@@ -686,7 +714,7 @@
     }
     
     window.onload = () => {
-        if(!checkUrlForAutoLogin()) {
+        if (!checkUrlForAutoLogin()) {
             renderRegisterMode();
             modal.style.display = 'flex';
             appContainer.style.display = 'none';
@@ -694,4 +722,4 @@
     };
 </script>
 </body>
-                                                                                                                                        </html>
+        </html>
