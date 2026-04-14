@@ -13,6 +13,7 @@ SUPPORT_FILE = "support_requests.json"
 MAINTENANCE_FILE = "maintenance_mode.json"
 POSTS_FILE = "posts.json"
 BANNED_FILE = "banned_users.json"
+USERS_FILE = "registered_users.json"
 
 # ========== ИНИЦИАЛИЗАЦИЯ ФАЙЛОВ ==========
 def init_files():
@@ -62,6 +63,11 @@ def init_files():
     if not os.path.exists(BANNED_FILE):
         with open(BANNED_FILE, "w") as f:
             json.dump([], f, indent=4)
+    
+    # Зарегистрированные пользователи
+    if not os.path.exists(USERS_FILE):
+        with open(USERS_FILE, "w") as f:
+            json.dump({}, f, indent=4)
 
 init_files()
 
@@ -105,6 +111,14 @@ def save_banned(banned_list):
     with open(BANNED_FILE, "w") as f:
         json.dump(banned_list, f, indent=4)
 
+def load_users():
+    with open(USERS_FILE, "r") as f:
+        return json.load(f)
+
+def save_users(users):
+    with open(USERS_FILE, "w") as f:
+        json.dump(users, f, indent=4)
+
 def is_banned(name):
     banned = load_banned()
     return name in banned
@@ -124,6 +138,30 @@ def unban_user(name):
         save_banned(banned)
         return True
     return False
+
+def register_user_server(nickname, password_hash):
+    users = load_users()
+    if nickname in users:
+        return False
+    users[nickname] = {
+        "password_hash": password_hash,
+        "registered_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "last_login": None
+    }
+    save_users(users)
+    return True
+
+def update_last_login(nickname):
+    users = load_users()
+    if nickname in users:
+        users[nickname]["last_login"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        save_users(users)
+
+def verify_password_server(nickname, password_hash):
+    users = load_users()
+    if nickname not in users:
+        return False
+    return users[nickname]["password_hash"] == password_hash
 
 # ========== API ДЛЯ САЙТА ==========
 @app.route('/')
@@ -167,6 +205,33 @@ def get_top():
             else:
                 result[cat].append({"name": "—", "value": "—"})
     return jsonify(result)
+
+# ========== РЕГИСТРАЦИЯ ЧЕРЕЗ API ==========
+@app.route("/api/register", methods=["POST"])
+def api_register():
+    req = request.json
+    nickname = req.get("nickname", "").strip()
+    password_hash = req.get("password_hash", "").strip()
+    
+    if not nickname or not password_hash:
+        return jsonify({"success": False, "error": "Никнейм и пароль обязательны"}), 400
+    
+    if register_user_server(nickname, password_hash):
+        return jsonify({"success": True})
+    else:
+        return jsonify({"success": False, "error": "Пользователь уже существует"}), 409
+
+@app.route("/api/login", methods=["POST"])
+def api_login():
+    req = request.json
+    nickname = req.get("nickname", "").strip()
+    password_hash = req.get("password_hash", "").strip()
+    
+    if verify_password_server(nickname, password_hash):
+        update_last_login(nickname)
+        return jsonify({"success": True})
+    else:
+        return jsonify({"success": False, "error": "Неверный ник или пароль"}), 401
 
 # ========== ЧАТ ПОДДЕРЖКИ ==========
 @app.route("/api/support/send", methods=["POST"])
@@ -300,6 +365,18 @@ def admin_panel():
                 save_support(support_list)
                 return '<pre>✅ Ответ сохранён</pre><a href="/admin">← Назад</a>'
         
+        # Удаление пользователя
+        elif action == "delete_user":
+            name = request.form.get("delete_user_name", "").strip()
+            if name:
+                users = load_users()
+                if name in users:
+                    del users[name]
+                    save_users(users)
+                    return f'<pre>🗑 Пользователь {name} удалён</pre><a href="/admin">← Назад</a>'
+                else:
+                    return f'<pre>❌ Пользователь {name} не найден</pre><a href="/admin">← Назад</a>'
+        
         # Обычная команда /set и т.д.
         else:
             cmd = request.form.get("command", "").strip()
@@ -314,6 +391,7 @@ def admin_panel():
     answered = [r for r in support_list if r["status"] == "answered"]
     posts = load_posts()
     banned_users = load_banned()
+    users = load_users()
     
     return render_template_string('''
     <!DOCTYPE html>
@@ -329,8 +407,11 @@ def admin_panel():
             .request{background:#1a1a1a;border-left:3px solid #ff6b5c;padding:10px;margin-bottom:10px;}
             .answered{opacity:0.7;border-left-color:#6bff6b;}
             .post-item{background:#1a1a1a;padding:10px;margin-bottom:10px;border-radius:8px;}
+            .user-item{background:#1a1a1a;padding:8px;margin-bottom:5px;border-radius:8px;display:flex;justify-content:space-between;align-items:center;}
             hr{border-color:#2c2c2c;}
             .inline-form{display:inline-block;margin-right:10px;}
+            table{width:100%;border-collapse:collapse;}
+            th,td{text-align:left;padding:8px;border-bottom:1px solid #2c2c2c;}
         </style>
     </head>
     <body>
@@ -347,6 +428,30 @@ def admin_panel():
                 <input type="hidden" name="action" value="unteh">
                 <button type="submit" style="background:#6bff6b;color:#0a0a0a;">✅ Выключить /unteh</button>
             </form>
+        </div>
+        
+        <div class="section">
+            <h2>👥 Зарегистрированные пользователи ({{ users|length }})</h2>
+            <table>
+                <tr><th>Никнейм</th><th>Дата регистрации</th><th>Последний вход</th><th>Действие</th></tr>
+                {% for name, data in users.items() %}
+                <tr>
+                    <td>{{ name }}</td>
+                    <td>{{ data.registered_at }}</td>
+                    <td>{{ data.last_login or 'никогда' }}</td>
+                    <td>
+                        <form method="post" style="display:inline;">
+                            <input type="hidden" name="action" value="delete_user">
+                            <input type="hidden" name="delete_user_name" value="{{ name }}">
+                            <button type="submit" style="background:#ff4444;padding:4px 12px;">🗑 Удалить</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+            {% if users|length == 0 %}
+            <p>📭 Нет зарегистрированных пользователей</p>
+            {% endif %}
         </div>
         
         <div class="section">
@@ -451,7 +556,7 @@ def admin_panel():
         </script>
     </body>
     </html>
-    ''', maintenance=maintenance, unanswered=unanswered, answered=answered, posts=posts, banned_users=banned_users)
+    ''', maintenance=maintenance, unanswered=unanswered, answered=answered, posts=posts, banned_users=banned_users, users=users)
 
 # ========== ВНУТРЕННИЕ КОМАНДЫ ==========
 def run_command_internal(cmd_line):
@@ -521,7 +626,7 @@ def run_command_api():
 # ========== ЗАПУСК ==========
 if __name__ == "__main__":
     print(f"🚀 Сервер запущен на порту {PORT}")
-    print(f"📡 API: /api/top, /api/posts")
+    print(f"📡 API: /api/top, /api/posts, /api/register, /api/login")
     print(f"🔧 Админ-панель: /admin")
     print(f"💬 Команды: /teh, /unteh, /ban, /unban")
     app.run(host="0.0.0.0", port=PORT, debug=False)
