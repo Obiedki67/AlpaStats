@@ -272,7 +272,7 @@
             <div class="setting-item"><span>🎮 Аккаунт: <span class="nickname" id="settingsNick"></span></span><span>✅ защищён</span></div>
         </div>
     </div>
-    <footer>Alpa Site · Данные с сервера · обновление каждые 30 секунд</footer>
+    <footer>Alpa Site · Данные с сервера Render · обновление каждые 30 секунд</footer>
 </div>
 
 <!-- МОДАЛЬНОЕ ОКНО (два состояния) -->
@@ -283,18 +283,12 @@
 </div>
 
 <script>
-    // ======================= НАСТРОЙКИ ПОДКЛЮЧЕНИЯ =======================
-    // Пробуем несколько возможных адресов сервера
-    const possibleHosts = [
-        window.location.hostname,
-        "de3.bot-hosting.net",
-        "157.90.181.183"
-    ];
-    const SERVER_PORT = 20003;
-    let API_BASE = `http://${possibleHosts[0]}:${SERVER_PORT}/api`;
+    // ======================= НАСТРОЙКИ ПОДКЛЮЧЕНИЯ (RENDER) =======================
+    // Ваш постоянный сервер на Render (HTTPS, не засыпает)
+    const API_BASE = "https://alpa-api.onrender.com/api";
+    let isServerOnline = false;
     let currentUserNick = "";
     let currentCategory = "kills";
-    let isServerOnline = false;
     let updateInterval = null;
     
     // Хранилище пользователей
@@ -341,57 +335,38 @@
         return { success: true, nickname, passwordHash, rawPassword };
     }
     
-    // ========== ПРОВЕРКА СТАТУСА СЕРВЕРА ==========
-    async function findWorkingServer() {
-        for (const host of possibleHosts) {
-            const testUrl = `http://${host}:${SERVER_PORT}/api/top`;
-            try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 3000);
-                const response = await fetch(testUrl, { signal: controller.signal });
-                clearTimeout(timeoutId);
-                if (response.ok) {
-                    API_BASE = `http://${host}:${SERVER_PORT}/api`;
-                    console.log("✅ Сервер найден:", API_BASE);
-                    return true;
-                }
-            } catch(e) {}
-        }
-        console.log("⚠️ Сервер не найден, работаем офлайн");
-        return false;
-    }
-    
+    // ========== ПРОВЕРКА СТАТУСА СЕРВЕРА (RENDER) ==========
     async function checkServerStatus() {
-        if (!API_BASE) {
-            isServerOnline = false;
-            serverStatusSpan.innerHTML = '🔴 сервер офлайн';
-            serverStatusSpan.className = 'server-status offline';
-            if (onlineBadge) onlineBadge.innerHTML = '(офлайн)';
-            return false;
-        }
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3000);
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
             const response = await fetch(`${API_BASE}/top`, { signal: controller.signal });
             clearTimeout(timeoutId);
             if (response.ok) {
                 isServerOnline = true;
-                serverStatusSpan.innerHTML = '🟢 сервер онлайн';
-                serverStatusSpan.className = 'server-status online';
+                if (serverStatusSpan) {
+                    serverStatusSpan.innerHTML = '🟢 сервер онлайн (Render)';
+                    serverStatusSpan.className = 'server-status online';
+                }
                 if (onlineBadge) onlineBadge.innerHTML = '(данные с сервера)';
+                console.log("✅ Сервер Render онлайн");
                 return true;
             }
-        } catch(e) {}
+        } catch (e) {
+            console.log("Сервер Render не отвечает:", e.message);
+        }
         isServerOnline = false;
-        serverStatusSpan.innerHTML = '🔴 сервер офлайн (локальные данные)';
-        serverStatusSpan.className = 'server-status offline';
+        if (serverStatusSpan) {
+            serverStatusSpan.innerHTML = '🔴 сервер офлайн (локальные данные)';
+            serverStatusSpan.className = 'server-status offline';
+        }
         if (onlineBadge) onlineBadge.innerHTML = '(офлайн-режим)';
         return false;
     }
     
     // ========== ПОЛУЧЕНИЕ ТОП-ДАННЫХ (с сервера или локально) ==========
     async function fetchTopData() {
-        if (isServerOnline && API_BASE) {
+        if (isServerOnline) {
             try {
                 const response = await fetch(`${API_BASE}/top`);
                 if (response.ok) {
@@ -403,7 +378,7 @@
         }
         // Локальные демо-данные (только текущий игрок)
         const emptyEntry = { name: "—", value: "—" };
-        const userEntry = { name: currentUserNick, value: 0 };
+        const userEntry = { name: currentUserNick || "Гость", value: 0 };
         const categories = ["kills", "wins", "defeats", "deaths", "xp"];
         const demoData = {};
         categories.forEach(cat => {
@@ -445,8 +420,8 @@
     // ========== НОВОСТИ ==========
     function initNews() {
         const posts = [
-            { title: "🔐 Новая система входа", desc: "Теперь регистрация + персональная ссылка. Ваш аккаунт под защитой!", link: null, date: "20:00 МСК" },
-            { title: "🆔 Сайт привязан к серверу! Бета тестирование началось!", desc: "Поучаствуйте в бета тесте нашего сайта! Данные синхронизируются с сервером", link: null, date: "15:00 МСК" },
+            { title: "🚀 Сервер на Render", desc: "Теперь API работает постоянно, HTTPS, готов к чату!", link: null, date: "20:00 МСК" },
+            { title: "🆔 Сайт привязан к серверу Render", desc: "Данные синхронизируются, рейтинг живой", link: null, date: "15:00 МСК" },
             { title: "📱 Наш телеграм канал", desc: "Все новости и общение в Telegram", link: "https://t.me/alpa_amongus", date: "постоянная ссылка" },
             { title: "🎲 Список мини-игр", desc: "Прятки, Хард, Клон, Домики и другие режимы", link: "https://clck.ru/3T3oWT", date: "постоянная ссылка" }
         ];
@@ -601,7 +576,6 @@
         document.getElementById('displayNickname').innerText = nickname;
         document.getElementById('settingsNick').innerText = nickname;
         
-        await findWorkingServer();
         await checkServerStatus();
         
         initNews();
