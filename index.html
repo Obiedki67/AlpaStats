@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Alpa Site | Чат поддержки</title>
+    <title>Alpa Site | Чат поддержки + Посты</title>
     <style>
         * {
             margin: 0;
@@ -37,6 +37,7 @@
             align-items: center;
             justify-content: center;
             z-index: 2000;
+            transition: opacity 0.25s ease;
         }
         .modal-card {
             background: #0f0f0f;
@@ -53,6 +54,11 @@
             margin-bottom: 0.5rem;
             color: #ff6b5c;
         }
+        .modal-card p {
+            color: #aaa;
+            margin-bottom: 1.2rem;
+            font-size: 0.9rem;
+        }
         .modal-card input {
             width: 100%;
             background: #1a1a1a;
@@ -63,6 +69,7 @@
             font-size: 1rem;
             margin-bottom: 0.8rem;
             outline: none;
+            transition: 0.2s;
         }
         .modal-card input:focus {
             border-color: #ff6b5c;
@@ -79,16 +86,27 @@
             color: #0a0a0a;
             margin-top: 0.5rem;
         }
+        .modal-card button:hover {
+            background: #ff8a7c;
+            transform: scale(1.02);
+        }
         .modal-card .secondary-btn {
             background: transparent;
             border: 1px solid #ff6b5c;
             color: #ff6b5c;
             margin-top: 0.5rem;
         }
+        .modal-card .secondary-btn:hover {
+            background: #ff6b5c20;
+            transform: scale(1.02);
+        }
         .error-msg {
             color: #ff6b5c;
             font-size: 0.8rem;
-            margin: 0.5rem 0;
+            margin: 0.5rem 0 0.2rem;
+            background: #ff6b5c10;
+            padding: 0.3rem;
+            border-radius: 40px;
         }
         .generated-link {
             background: #111;
@@ -97,8 +115,14 @@
             padding: 0.8rem;
             margin: 1rem 0;
             word-break: break-all;
+            font-size: 0.75rem;
             font-family: monospace;
             color: #ffaa66;
+        }
+        .hint {
+            font-size: 0.7rem;
+            color: #6a6a6a;
+            margin-top: 0.8rem;
         }
 
         .header {
@@ -135,7 +159,6 @@
         .server-status.online { color: #6bff6b; border-color: #6bff6b40; }
         .server-status.maintenance { color: #ffaa66; border-color: #ffaa6640; }
         .server-status.offline { color: #ff6b5c; border-color: #ff6b5c40; }
-
         .tabs {
             display: flex;
             flex-wrap: wrap;
@@ -157,26 +180,18 @@
         }
         .tab-btn:hover { color: #fff; background: #1a1a1a; }
         .tab-btn.active { background: #ff6b5c20; color: #ff6b5c; border: 1px solid #ff6b5c60; }
-
         .tab-content { display: none; animation: fadeUp 0.35s ease; }
         .tab-content.active-content { display: block; }
-        @keyframes fadeUp {
-            from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(8px);} to { opacity: 1; transform: translateY(0);} }
 
-        .news-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 1.2rem;
-        }
+        .news-grid { display: flex; flex-direction: column; gap: 1.2rem; }
         .news-card {
             background: #0f0f0f;
             border: 1px solid #262626;
             border-radius: 28px;
             padding: 1.2rem 1.5rem;
             transition: all 0.25s;
-            cursor: pointer;
+            cursor: default;
         }
         .news-card:hover {
             border-color: #ff6b5c;
@@ -291,6 +306,7 @@
             color: white;
             margin-bottom: 0.8rem;
             font-family: inherit;
+            resize: vertical;
         }
         .support-form button {
             background: #ff6b5c;
@@ -299,6 +315,9 @@
             border-radius: 60px;
             font-weight: 600;
             cursor: pointer;
+        }
+        .support-form button:hover {
+            background: #ff8a7c;
         }
 
         .settings-panel {
@@ -314,14 +333,12 @@
             padding: 0.9rem 0;
             border-bottom: 1px solid #222;
         }
-
         footer {
             margin-top: 2.5rem;
             text-align: center;
             font-size: 0.7rem;
             color: #4a4a4a;
         }
-
         @media (max-width: 680px) {
             .tab-btn { padding: 0.4rem 1rem; font-size: 0.85rem; }
         }
@@ -331,7 +348,7 @@
 <div class="app-container" id="app" style="display: none;">
     <div class="header">
         <div class="profile-badge"><span>🔐 аккаунт</span><span class="nickname" id="displayNickname">---</span></div>
-        <div class="server-status" id="serverStatus">🔄 проверка...</div>
+        <div class="server-status" id="serverStatus">🔄 проверка сервера...</div>
     </div>
     <div class="tabs">
         <button class="tab-btn active" data-tab="news">📰 Новости</button>
@@ -339,7 +356,7 @@
         <button class="tab-btn" data-tab="support">💬 Чат поддержки</button>
         <button class="tab-btn" data-tab="settings">⚙️ Настройки</button>
     </div>
-    <div id="newsTab" class="tab-content active-content"><div class="news-grid" id="newsContainer"></div></div>
+    <div id="newsTab" class="tab-content active-content"><div class="news-grid" id="newsContainer">Загрузка новостей...</div></div>
     <div id="topTab" class="tab-content">
         <div class="stats-section">
             <div class="stats-title">📊 Рейтинги сообщества</div>
@@ -360,7 +377,7 @@
             <div class="setting-item"><span>🎮 Аккаунт: <span class="nickname" id="settingsNick"></span></span><span>✅ защищён</span></div>
         </div>
     </div>
-    <footer>Alpa Site · Чат поддержки и техобслуживание</footer>
+    <footer>Alpa Site · Посты создаются в админ-панели · Бан за спам</footer>
 </div>
 
 <div id="authModal" class="modal-overlay"><div class="modal-card" id="modalCard"></div></div>
@@ -378,7 +395,7 @@
     const appContainer = document.getElementById('app');
     const serverStatusSpan = document.getElementById('serverStatus');
     
-    // ========== ПРОВЕРКА ТЕХОБСЛУЖИВАНИЯ ==========
+    // ========== ПРОВЕРКА СЕРВЕРА И ТЕХОБСЛУЖИВАНИЯ ==========
     async function checkMaintenanceAndServer() {
         try {
             const maintRes = await fetch(`${API_BASE}/maintenance`);
@@ -404,6 +421,33 @@
         serverStatusSpan.innerHTML = '🔴 сервер офлайн';
         serverStatusSpan.className = 'server-status offline';
         return false;
+    }
+    
+    // ========== ПОСТЫ (НОВОСТИ) ==========
+    async function loadPosts() {
+        const container = document.getElementById('newsContainer');
+        if (!container) return;
+        try {
+            const response = await fetch(`${API_BASE}/posts`);
+            const posts = await response.json();
+            if (posts.length === 0) {
+                container.innerHTML = '<div class="news-card"><div class="news-title">📭 Нет постов</div><div class="news-desc">Администратор скоро добавит новости.</div></div>';
+                return;
+            }
+            container.innerHTML = '';
+            posts.forEach(post => {
+                const card = document.createElement('div');
+                card.className = 'news-card';
+                card.innerHTML = `
+                    <div class="news-title">${escapeHtml(post.title)}</div>
+                    <div class="news-desc">${escapeHtml(post.content)}</div>
+                    <div class="news-date">🕒 ${post.date} — ${post.author}</div>
+                `;
+                container.appendChild(card);
+            });
+        } catch(e) {
+            container.innerHTML = '<div class="news-card"><div class="news-title">❌ Ошибка загрузки</div><div class="news-desc">Не удалось загрузить новости.</div></div>';
+        }
     }
     
     // ========== ТОП 10 ==========
@@ -468,8 +512,8 @@
                     html += `
                         <div class="support-message ${req.status === 'answered' ? 'support-answer' : ''}">
                             <strong>#${req.id}</strong> (${req.created_at})<br>
-                            <em>${req.message}</em>
-                            ${req.answer ? `<br>📌 <strong>Ответ:</strong> ${req.answer} (${req.answered_at})` : '<br>⏳ Ожидает ответа...'}
+                            <em>${escapeHtml(req.message)}</em>
+                            ${req.answer ? `<br>📌 <strong>Ответ:</strong> ${escapeHtml(req.answer)} (${req.answered_at})` : '<br>⏳ Ожидает ответа...'}
                         </div>
                     `;
                 }
@@ -502,6 +546,9 @@
                 alert("✅ Сообщение отправлено! Администратор ответит в ближайшее время.");
                 document.getElementById("supportMessage").value = "";
                 loadSupportChat();
+            } else if (response.status === 403) {
+                const error = await response.json();
+                alert(error.error || "❌ Вы забанены и не можете писать в поддержку");
             } else {
                 alert("❌ Ошибка отправки");
             }
@@ -510,26 +557,7 @@
         }
     };
     
-    // ========== НОВОСТИ ==========
-    function initNews() {
-        const posts = [
-            { title: "💬 Чат поддержки", desc: "Теперь вы можете отправить вопрос администратору", link: null, date: "новинка" },
-            { title: "🔧 Команды /teh и /unteh", desc: "Режим техобслуживания для сайта", link: null, date: "доступно" },
-            { title: "📱 Наш телеграм канал", desc: "Все новости в Telegram", link: "https://t.me/alpa_amongus", date: "ссылка" },
-            { title: "🎲 Список мини-игр", desc: "Прятки, Хард, Клон, Домики", link: "https://clck.ru/3T3oWT", date: "ссылка" }
-        ];
-        const container = document.getElementById('newsContainer');
-        if(!container) return;
-        container.innerHTML = '';
-        posts.forEach(post => {
-            const card = document.createElement('div');
-            card.className = 'news-card';
-            card.innerHTML = `<div class="news-title">${post.title}</div><div class="news-desc">${post.desc}</div><div class="news-date">🕒 ${post.date}</div>`;
-            if(post.link) { card.style.cursor = 'pointer'; card.addEventListener('click', () => window.open(post.link, '_blank')); }
-            container.appendChild(card);
-        });
-    }
-    
+    // ========== ВКЛАДКИ ==========
     function initTabs() {
         const tabs = document.querySelectorAll('.tab-btn');
         const contents = { news: document.getElementById('newsTab'), top: document.getElementById('topTab'), support: document.getElementById('supportTab'), settings: document.getElementById('settingsTab') };
@@ -539,6 +567,7 @@
             tabs.forEach(btn => { btn.classList.remove('active'); if(btn.dataset.tab === tabId) btn.classList.add('active'); });
             if(tabId === 'top') renderTop10(currentCategory);
             if(tabId === 'support') loadSupportChat();
+            if(tabId === 'news') loadPosts();
         }
         tabs.forEach(btn => {
             btn.addEventListener('click', () => { const tab = btn.dataset.tab; if(tab === 'news') activateTab('news'); if(tab === 'top') activateTab('top'); if(tab === 'support') activateTab('support'); if(tab === 'settings') activateTab('settings'); });
@@ -559,7 +588,7 @@
     
     function escapeHtml(str) { return String(str).replace(/[&<>]/g, function(m){ if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
     
-    // ========== РЕГИСТРАЦИЯ ==========
+    // ========== РЕГИСТРАЦИЯ И ВХОД ==========
     function saveUsersToLocal() { localStorage.setItem("alpa_users", JSON.stringify(usersDB)); }
     function simpleHash(str) { let hash=0; for(let i=0;i<str.length;i++){ hash=((hash<<5)-hash)+str.charCodeAt(i); hash|=0; } return hash.toString(16); }
     function generateLoginLink(nickname, rawPassword) { return `alpalogin=${encodeURIComponent(nickname)}?${simpleHash(rawPassword)}`; }
@@ -574,7 +603,7 @@
     }
     
     function renderRegisterMode() {
-        modalCard.innerHTML = `<h3>📝 Регистрация</h3><p>Создайте аккаунт для входа</p><input type="text" id="regNick" placeholder="Ваш никнейм"><input type="password" id="regPass" placeholder="Пароль (мин. 3 символа)"><div id="regError" class="error-msg"></div><button id="doRegisterBtn">Зарегистрироваться</button><button id="switchToLoginBtn" class="secondary-btn">🔑 У меня есть ключ → Войти</button>`;
+        modalCard.innerHTML = `<h3>📝 Регистрация</h3><p>Создайте аккаунт для входа</p><input type="text" id="regNick" placeholder="Ваш никнейм"><input type="password" id="regPass" placeholder="Пароль (мин. 3 символа)"><div id="regError" class="error-msg"></div><button id="doRegisterBtn">Зарегистрироваться</button><button id="switchToLoginBtn" class="secondary-btn">🔑 У меня есть ключ → Войти</button><div class="hint">⚡ После регистрации вы получите уникальную ссылку для входа</div>`;
         document.getElementById('doRegisterBtn')?.addEventListener('click', () => handleRegister());
         document.getElementById('switchToLoginBtn')?.addEventListener('click', () => renderLoginMode());
     }
@@ -587,13 +616,13 @@
         const result = registerUser(nick, pass);
         if(!result.success) { errorDiv.innerText = result.error; return; }
         const loginLink = generateLoginLink(result.nickname, result.rawPassword);
-        modalCard.innerHTML = `<h3>✅ Регистрация успешна!</h3><p>Ваша ссылка для входа:</p><div class="generated-link">${escapeHtml(loginLink)}</div><button id="copyLinkBtn">📋 Скопировать</button><button id="proceedToLoginBtn" style="margin-top:10px;">🚀 Войти сейчас</button>`;
+        modalCard.innerHTML = `<h3>✅ Регистрация успешна!</h3><p>Ваша ссылка для входа:</p><div class="generated-link">${escapeHtml(loginLink)}</div><button id="copyLinkBtn">📋 Скопировать</button><button id="proceedToLoginBtn" class="secondary-btn">🚀 Войти сейчас</button><div class="hint">⚠️ Никому не передавайте ссылку — это ваш пароль!</div>`;
         document.getElementById('copyLinkBtn')?.addEventListener('click', () => { navigator.clipboard.writeText(loginLink); alert("Скопировано!"); });
         document.getElementById('proceedToLoginBtn')?.addEventListener('click', () => performLoginWithKey(loginLink));
     }
     
     function renderLoginMode() {
-        modalCard.innerHTML = `<h3>🔑 Вход по ключу</h3><p>Введите ссылку, полученную при регистрации</p><input type="text" id="loginKeyInput" placeholder="alpalogin=ВашНик?хеш"><div id="loginError" class="error-msg"></div><button id="doLoginBtn">Войти</button><button id="switchToRegisterBtn" class="secondary-btn">📝 Нет аккаунта? Зарегистрироваться</button>`;
+        modalCard.innerHTML = `<h3>🔑 Вход по ключу</h3><p>Введите ссылку, полученную при регистрации</p><input type="text" id="loginKeyInput" placeholder="alpalogin=ВашНик?хеш"><div id="loginError" class="error-msg"></div><button id="doLoginBtn">Войти</button><button id="switchToRegisterBtn" class="secondary-btn">📝 Нет аккаунта? Зарегистрироваться</button><div class="hint">Формат: alpalogin=ИМЯ?ХЕШ_ПАРОЛЯ</div>`;
         document.getElementById('doLoginBtn')?.addEventListener('click', () => handleLoginWithKey());
         document.getElementById('switchToRegisterBtn')?.addEventListener('click', () => renderRegisterMode());
     }
@@ -631,7 +660,7 @@
         document.getElementById('displayNickname').innerText = nickname;
         document.getElementById('settingsNick').innerText = nickname;
         await checkMaintenanceAndServer();
-        initNews();
+        await loadPosts();
         initTabs();
         initCategoryButtons();
         await renderTop10('kills');
@@ -639,6 +668,7 @@
         updateInterval = setInterval(async () => {
             const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab;
             if(activeTab === 'top') await renderTop10(currentCategory);
+            if(activeTab === 'news') await loadPosts();
             await checkMaintenanceAndServer();
         }, 30000);
     }
@@ -664,4 +694,4 @@
     };
 </script>
 </body>
-</html>
+                                                                                                                                        </html>
