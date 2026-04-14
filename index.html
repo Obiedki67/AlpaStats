@@ -5,44 +5,326 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>Alpa Site | Чат поддержки</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: #0a0a0a; font-family: 'Inter', sans-serif; color: #e5e5e5; }
-        .app-container { max-width: 1300px; margin: 0 auto; padding: 1.5rem; }
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.96); backdrop-filter: blur(12px); display: flex; align-items: center; justify-content: center; z-index: 2000; }
-        .modal-card { background: #0f0f0f; border: 1px solid #2c2c2c; border-radius: 42px; padding: 2rem; max-width: 480px; width: 90%; text-align: center; }
-        .modal-card h3 { font-size: 1.6rem; color: #ff6b5c; }
-        .modal-card input, .modal-card textarea { width: 100%; background: #1a1a1a; border: 1px solid #333; padding: 0.9rem; border-radius: 60px; color: white; margin-bottom: 0.8rem; }
-        .modal-card button { background: #ff6b5c; border: none; padding: 0.7rem 1.6rem; border-radius: 60px; font-weight: 600; cursor: pointer; }
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2a2a2a; padding-bottom: 0.8rem; margin-bottom: 2rem; }
-        .profile-badge { background: #111; border-radius: 60px; padding: 0.5rem 1.2rem; border: 1px solid #2c2c2c; }
-        .nickname { color: #ff6b5c; font-weight: 600; }
-        .server-status { font-size: 0.7rem; background: #111; padding: 0.3rem 0.9rem; border-radius: 40px; }
-        .server-status.online { color: #6bff6b; }
-        .server-status.maintenance { color: #ffaa66; }
-        .server-status.offline { color: #ff6b5c; }
-        .tabs { display: flex; gap: 0.5rem; margin-bottom: 2rem; border-bottom: 1px solid #222; padding-bottom: 0.5rem; }
-        .tab-btn { background: transparent; border: none; color: #aaa; padding: 0.6rem 1.4rem; border-radius: 40px; cursor: pointer; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #0a0a0a;
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.5;
+            color: #e5e5e5;
+        }
+
+        .app-container {
+            max-width: 1300px;
+            margin: 0 auto;
+            padding: 1.5rem 1.5rem 2rem;
+        }
+
+        /* модальное окно */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.96);
+            backdrop-filter: blur(12px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        .modal-card {
+            background: #0f0f0f;
+            border: 1px solid #2c2c2c;
+            border-radius: 42px;
+            padding: 2rem 1.8rem;
+            max-width: 480px;
+            width: 90%;
+            text-align: center;
+            animation: fadeUp 0.3s ease;
+        }
+        .modal-card h3 {
+            font-size: 1.6rem;
+            margin-bottom: 0.5rem;
+            color: #ff6b5c;
+        }
+        .modal-card input {
+            width: 100%;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            padding: 0.9rem 1rem;
+            border-radius: 60px;
+            color: white;
+            font-size: 1rem;
+            margin-bottom: 0.8rem;
+            outline: none;
+        }
+        .modal-card input:focus {
+            border-color: #ff6b5c;
+        }
+        .modal-card button {
+            background: #ff6b5c;
+            border: none;
+            padding: 0.7rem 1.6rem;
+            border-radius: 60px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: 0.2s;
+            color: #0a0a0a;
+            margin-top: 0.5rem;
+        }
+        .modal-card .secondary-btn {
+            background: transparent;
+            border: 1px solid #ff6b5c;
+            color: #ff6b5c;
+            margin-top: 0.5rem;
+        }
+        .error-msg {
+            color: #ff6b5c;
+            font-size: 0.8rem;
+            margin: 0.5rem 0;
+        }
+        .generated-link {
+            background: #111;
+            border: 1px solid #ff6b5c;
+            border-radius: 60px;
+            padding: 0.8rem;
+            margin: 1rem 0;
+            word-break: break-all;
+            font-family: monospace;
+            color: #ffaa66;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.8rem 1rem;
+            border-bottom: 1px solid #2a2a2a;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        .profile-badge {
+            background: #111111;
+            border-radius: 60px;
+            padding: 0.5rem 1.2rem;
+            border: 1px solid #2c2c2c;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 500;
+        }
+        .nickname {
+            color: #ff6b5c;
+            font-weight: 600;
+        }
+        .server-status {
+            font-size: 0.7rem;
+            background: #111;
+            padding: 0.3rem 0.9rem;
+            border-radius: 40px;
+            border: 1px solid #2c2c2c;
+        }
+        .server-status.online { color: #6bff6b; border-color: #6bff6b40; }
+        .server-status.maintenance { color: #ffaa66; border-color: #ffaa6640; }
+        .server-status.offline { color: #ff6b5c; border-color: #ff6b5c40; }
+
+        .tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid #222;
+            padding-bottom: 0.5rem;
+        }
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: #aaa;
+            font-size: 1rem;
+            font-weight: 500;
+            padding: 0.6rem 1.4rem;
+            border-radius: 40px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .tab-btn:hover { color: #fff; background: #1a1a1a; }
         .tab-btn.active { background: #ff6b5c20; color: #ff6b5c; border: 1px solid #ff6b5c60; }
-        .tab-content { display: none; animation: fadeUp 0.35s; }
+
+        .tab-content { display: none; animation: fadeUp 0.35s ease; }
         .tab-content.active-content { display: block; }
-        @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        .news-grid { display: flex; flex-direction: column; gap: 1.2rem; }
-        .news-card { background: #0f0f0f; border: 1px solid #262626; border-radius: 28px; padding: 1.2rem; cursor: pointer; transition: 0.25s; }
-        .news-card:hover { border-color: #ff6b5c; transform: translateX(5px); }
-        .stats-section { background: #0c0c0c; border-radius: 28px; border: 1px solid #2a2a2a; padding: 1.2rem; }
-        .category-buttons { display: flex; flex-wrap: wrap; gap: 0.7rem; margin-bottom: 1.5rem; }
-        .cat-btn { background: #111; border: 1px solid #2c2c2c; color: #ccc; padding: 0.4rem 1.2rem; border-radius: 40px; cursor: pointer; }
-        .cat-btn.active-cat { background: #ff6b5c; color: #0a0a0a; }
-        .top-list { display: flex; flex-direction: column; gap: 0.7rem; }
-        .top-item { display: flex; align-items: center; gap: 1rem; background: #111; padding: 0.6rem 1rem; border-radius: 60px; border: 1px solid #252525; }
-        .top-rank { width: 45px; color: #ff6b5c; font-weight: 700; }
-        .top-name { flex: 1; }
-        .support-chat { background: #0c0c0c; border-radius: 28px; border: 1px solid #2a2a2a; padding: 1.2rem; }
-        .support-message { background: #111; border-radius: 20px; padding: 1rem; margin-bottom: 1rem; border-left: 3px solid #ff6b5c; }
-        .support-answer { border-left-color: #6bff6b; background: #1a1a1a; }
-        .support-form { margin-top: 1.5rem; }
-        .support-form textarea { width: 100%; background: #1a1a1a; border: 1px solid #333; padding: 0.9rem; border-radius: 28px; color: white; margin-bottom: 0.8rem; }
-        footer { margin-top: 2rem; text-align: center; font-size: 0.7rem; color: #4a4a4a; }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .news-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+        }
+        .news-card {
+            background: #0f0f0f;
+            border: 1px solid #262626;
+            border-radius: 28px;
+            padding: 1.2rem 1.5rem;
+            transition: all 0.25s;
+            cursor: pointer;
+        }
+        .news-card:hover {
+            border-color: #ff6b5c;
+            transform: translateX(5px);
+            background: #121212;
+        }
+        .news-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #f2f2f2;
+            margin-bottom: 0.4rem;
+        }
+        .news-desc {
+            color: #aaa;
+            font-size: 0.9rem;
+        }
+        .news-date {
+            font-size: 0.7rem;
+            color: #ff6b5c;
+            margin-top: 0.6rem;
+        }
+
+        .stats-section {
+            background: #0c0c0c;
+            border-radius: 28px;
+            border: 1px solid #2a2a2a;
+            padding: 1.2rem;
+            margin-bottom: 1.5rem;
+        }
+        .stats-title {
+            font-size: 1.2rem;
+            font-weight: 500;
+            margin-bottom: 1rem;
+            border-left: 3px solid #ff6b5c;
+            padding-left: 12px;
+        }
+        .category-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.7rem;
+            margin-bottom: 1.8rem;
+        }
+        .cat-btn {
+            background: #111;
+            border: 1px solid #2c2c2c;
+            color: #ccc;
+            padding: 0.4rem 1.2rem;
+            border-radius: 40px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .cat-btn.active-cat {
+            background: #ff6b5c;
+            border-color: #ff6b5c;
+            color: #0a0a0a;
+            font-weight: 500;
+        }
+        .top-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.7rem;
+        }
+        .top-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            background: #111;
+            padding: 0.6rem 1rem;
+            border-radius: 60px;
+            border: 1px solid #252525;
+        }
+        .top-rank {
+            font-weight: 700;
+            width: 45px;
+            color: #ff6b5c;
+        }
+        .top-name {
+            flex: 1;
+            color: #ddd;
+        }
+        .top-value {
+            font-family: monospace;
+            color: #bbb;
+        }
+
+        .support-chat {
+            background: #0c0c0c;
+            border-radius: 28px;
+            border: 1px solid #2a2a2a;
+            padding: 1.5rem;
+        }
+        .support-message {
+            background: #111;
+            border-radius: 20px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-left: 3px solid #ff6b5c;
+        }
+        .support-answer {
+            border-left-color: #6bff6b;
+            background: #1a1a1a;
+        }
+        .support-form {
+            margin-top: 1.5rem;
+        }
+        .support-form textarea {
+            width: 100%;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            padding: 0.9rem;
+            border-radius: 28px;
+            color: white;
+            margin-bottom: 0.8rem;
+            font-family: inherit;
+        }
+        .support-form button {
+            background: #ff6b5c;
+            border: none;
+            padding: 0.6rem 1.5rem;
+            border-radius: 60px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .settings-panel {
+            background: #0c0c0c;
+            border-radius: 32px;
+            padding: 1.5rem;
+            border: 1px solid #262626;
+        }
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.9rem 0;
+            border-bottom: 1px solid #222;
+        }
+
+        footer {
+            margin-top: 2.5rem;
+            text-align: center;
+            font-size: 0.7rem;
+            color: #4a4a4a;
+        }
+
+        @media (max-width: 680px) {
+            .tab-btn { padding: 0.4rem 1rem; font-size: 0.85rem; }
+        }
     </style>
 </head>
 <body>
@@ -58,11 +340,29 @@
         <button class="tab-btn" data-tab="settings">⚙️ Настройки</button>
     </div>
     <div id="newsTab" class="tab-content active-content"><div class="news-grid" id="newsContainer"></div></div>
-    <div id="topTab" class="tab-content"><div class="stats-section"><div class="stats-title">📊 Рейтинги сообщества</div><div class="category-buttons" id="categoryButtons"><button class="cat-btn active-cat" data-cat="kills">Убийства</button><button class="cat-btn" data-cat="wins">Победы</button><button class="cat-btn" data-cat="defeats">Поражения</button><button class="cat-btn" data-cat="deaths">Смерти</button><button class="cat-btn" data-cat="xp">Опыт</button></div><div id="top10List" class="top-list">Загрузка...</div></div></div>
-    <div id="supportTab" class="tab-content"><div class="support-chat" id="supportChat"><p>Загрузка...</p></div></div>
-    <div id="settingsTab" class="tab-content"><div class="settings-panel" style="background:#0c0c0c;border-radius:32px;padding:1.5rem;"><div class="setting-item"><span>🌙 Тёмная тема</span><span>active</span></div></div></div>
+    <div id="topTab" class="tab-content">
+        <div class="stats-section">
+            <div class="stats-title">📊 Рейтинги сообщества</div>
+            <div class="category-buttons" id="categoryButtons">
+                <button class="cat-btn active-cat" data-cat="kills">Убийства</button>
+                <button class="cat-btn" data-cat="wins">Победы</button>
+                <button class="cat-btn" data-cat="defeats">Поражения</button>
+                <button class="cat-btn" data-cat="deaths">Смерти</button>
+                <button class="cat-btn" data-cat="xp">Опыт</button>
+            </div>
+            <div id="top10List" class="top-list">Загрузка...</div>
+        </div>
+    </div>
+    <div id="supportTab" class="tab-content"><div class="support-chat" id="supportChat">Загрузка...</div></div>
+    <div id="settingsTab" class="tab-content">
+        <div class="settings-panel">
+            <div class="setting-item"><span>🌙 Тёмная тема</span><span style="color:#ff6b5c">minimal black</span></div>
+            <div class="setting-item"><span>🎮 Аккаунт: <span class="nickname" id="settingsNick"></span></span><span>✅ защищён</span></div>
+        </div>
+    </div>
     <footer>Alpa Site · Чат поддержки и техобслуживание</footer>
 </div>
+
 <div id="authModal" class="modal-overlay"><div class="modal-card" id="modalCard"></div></div>
 
 <script>
@@ -78,7 +378,7 @@
     const appContainer = document.getElementById('app');
     const serverStatusSpan = document.getElementById('serverStatus');
     
-    // ========== ПРОВЕРКА СТАТУСА И ТЕХОБСЛУЖИВАНИЯ ==========
+    // ========== ПРОВЕРКА ТЕХОБСЛУЖИВАНИЯ ==========
     async function checkMaintenanceAndServer() {
         try {
             const maintRes = await fetch(`${API_BASE}/maintenance`);
@@ -259,7 +559,7 @@
     
     function escapeHtml(str) { return String(str).replace(/[&<>]/g, function(m){ if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
     
-    // ========== РЕГИСТРАЦИЯ/ВХОД (как раньше) ==========
+    // ========== РЕГИСТРАЦИЯ ==========
     function saveUsersToLocal() { localStorage.setItem("alpa_users", JSON.stringify(usersDB)); }
     function simpleHash(str) { let hash=0; for(let i=0;i<str.length;i++){ hash=((hash<<5)-hash)+str.charCodeAt(i); hash|=0; } return hash.toString(16); }
     function generateLoginLink(nickname, rawPassword) { return `alpalogin=${encodeURIComponent(nickname)}?${simpleHash(rawPassword)}`; }
@@ -274,7 +574,7 @@
     }
     
     function renderRegisterMode() {
-        modalCard.innerHTML = `<h3>📝 Регистрация</h3><p>Создайте аккаунт для входа</p><input type="text" id="regNick" placeholder="Ваш никнейм"><input type="password" id="regPass" placeholder="Пароль (мин. 3 символа)"><div id="regError" class="error-msg"></div><button id="doRegisterBtn">Зарегистрироваться</button><button id="switchToLoginBtn" class="secondary-btn" style="background:transparent;border:1px solid #ff6b5c;margin-top:10px;">🔑 У меня есть ключ → Войти</button>`;
+        modalCard.innerHTML = `<h3>📝 Регистрация</h3><p>Создайте аккаунт для входа</p><input type="text" id="regNick" placeholder="Ваш никнейм"><input type="password" id="regPass" placeholder="Пароль (мин. 3 символа)"><div id="regError" class="error-msg"></div><button id="doRegisterBtn">Зарегистрироваться</button><button id="switchToLoginBtn" class="secondary-btn">🔑 У меня есть ключ → Войти</button>`;
         document.getElementById('doRegisterBtn')?.addEventListener('click', () => handleRegister());
         document.getElementById('switchToLoginBtn')?.addEventListener('click', () => renderLoginMode());
     }
@@ -293,7 +593,7 @@
     }
     
     function renderLoginMode() {
-        modalCard.innerHTML = `<h3>🔑 Вход по ключу</h3><p>Введите ссылку, полученную при регистрации</p><input type="text" id="loginKeyInput" placeholder="alpalogin=ВашНик?хеш"><div id="loginError" class="error-msg"></div><button id="doLoginBtn">Войти</button><button id="switchToRegisterBtn" class="secondary-btn" style="background:transparent;border:1px solid #ff6b5c;margin-top:10px;">📝 Нет аккаунта? Зарегистрироваться</button>`;
+        modalCard.innerHTML = `<h3>🔑 Вход по ключу</h3><p>Введите ссылку, полученную при регистрации</p><input type="text" id="loginKeyInput" placeholder="alpalogin=ВашНик?хеш"><div id="loginError" class="error-msg"></div><button id="doLoginBtn">Войти</button><button id="switchToRegisterBtn" class="secondary-btn">📝 Нет аккаунта? Зарегистрироваться</button>`;
         document.getElementById('doLoginBtn')?.addEventListener('click', () => handleLoginWithKey());
         document.getElementById('switchToRegisterBtn')?.addEventListener('click', () => renderRegisterMode());
     }
@@ -329,6 +629,7 @@
         appContainer.style.display = 'block';
         document.title = `${nickname} | Alpa Site`;
         document.getElementById('displayNickname').innerText = nickname;
+        document.getElementById('settingsNick').innerText = nickname;
         await checkMaintenanceAndServer();
         initNews();
         initTabs();
