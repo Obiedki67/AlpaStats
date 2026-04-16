@@ -17,8 +17,7 @@ BANNED_FILE = "banned_users.json"
 USERS_FILE = "registered_users.json"
 
 # ========== ЕДИНЫЙ ПАРОЛЬ ДЛЯ АДМИН-ПАНЕЛИ ==========
-ADMIN_PASSWORD_HASH = "a7d7f4f8b6e8c9d1a2b3c4d5e6f7g8h9"  # Хеш пароля S2a9jlq69J4b2FZ20xoL9eVhw1Qm
-
+ADMIN_PASSWORD_HASH = "b8e3f2a1c9d4e5f6a7b8c9d0e1f2a3b4"  # Хеш пароля
 def simple_hash(s):
     hash_val = 0
     for c in s:
