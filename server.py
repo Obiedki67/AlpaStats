@@ -1,9 +1,9 @@
 import json
 import os
+import time
 from flask import Flask, jsonify, request, render_template_string, make_response
 from flask_cors import CORS
 from datetime import datetime
-import re
 
 app = Flask(__name__)
 CORS(app)
@@ -238,7 +238,7 @@ def api_login():
     else:
         return jsonify({"success": False, "error": "Неверный ник или пароль"}), 401
 
-# ========== ЧАТ ПОДДЕРЖКИ ==========
+# ========== ЧАТ ПОДДЕРЖКИ С ЗАЩИТОЙ ОТ СПАМА ==========
 @app.route("/api/support/send", methods=["POST"])
 def send_support():
     req = request.json
@@ -250,6 +250,28 @@ def send_support():
     
     if not message:
         return jsonify({"error": "Сообщение не может быть пустым"}), 400
+    
+    # Защита от спама
+    last_message_time = getattr(send_support, "last_message_time", {})
+    if name in last_message_time:
+        time_since_last = time.time() - last_message_time[name]
+        if time_since_last < 30:
+            return jsonify({"error": "Слишком часто. Подождите 30 секунд."}), 429
+    
+    last_message_content = getattr(send_support, "last_message_content", {})
+    if last_message_content.get(name) == message:
+        return jsonify({"error": "Не спамьте одинаковыми сообщениями"}), 429
+    
+    spam_keywords = ["робуксы", "робукс", "robux", "вайбкодер", "vibe", "ажахелужцэыдады", "фуу", "дичь", "спам", "халява", "бесплатно", "admin", "hack", "взлом", "дайте", "пж", "пжпж"]
+    for keyword in spam_keywords:
+        if keyword.lower() in message.lower():
+            ban_user(name)
+            return jsonify({"error": "Вы забанены за спам"}), 403
+    
+    last_message_time[name] = time.time()
+    last_message_content[name] = message
+    send_support.last_message_time = last_message_time
+    send_support.last_message_content = last_message_content
     
     support_list = load_support()
     new_request = {
@@ -346,7 +368,6 @@ def render_admin_panel():
             .request{background:#1a1a1a;border-left:3px solid #ff6b5c;padding:10px;margin-bottom:10px;}
             .answered{opacity:0.7;border-left-color:#6bff6b;}
             .post-item{background:#1a1a1a;padding:10px;margin-bottom:10px;border-radius:8px;}
-            .user-item{background:#1a1a1a;padding:8px;margin-bottom:5px;border-radius:8px;display:flex;justify-content:space-between;align-items:center;}
             hr{border-color:#2c2c2c;}
             table{width:100%;border-collapse:collapse;}
             th,td{text-align:left;padding:8px;border-bottom:1px solid #2c2c2c;}
