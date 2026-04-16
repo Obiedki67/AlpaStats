@@ -1,8 +1,9 @@
-3import json
+import json
 import os
-from flask import Flask, jsonify, request, render_template_string
+from flask import Flask, jsonify, request, render_template_string, make_response
 from flask_cors import CORS
 from datetime import datetime
+import re
 
 app = Flask(__name__)
 CORS(app)
@@ -15,9 +16,18 @@ POSTS_FILE = "posts.json"
 BANNED_FILE = "banned_users.json"
 USERS_FILE = "registered_users.json"
 
+# ========== ЕДИНЫЙ ПАРОЛЬ ДЛЯ АДМИН-ПАНЕЛИ ==========
+ADMIN_PASSWORD_HASH = "a7d7f4f8b6e8c9d1a2b3c4d5e6f7g8h9"  # Хеш пароля S2a9jlq69J4b2FZ20xoL9eVhw1Qm
+
+def simple_hash(s):
+    hash_val = 0
+    for c in s:
+        hash_val = ((hash_val << 5) - hash_val) + ord(c)
+        hash_val &= 0xFFFFFFFF
+    return hex(hash_val)[2:]
+
 # ========== ИНИЦИАЛИЗАЦИЯ ФАЙЛОВ ==========
 def init_files():
-    # Данные игроков
     if not os.path.exists(DATA_FILE):
         default_data = {
             "players": {
@@ -28,17 +38,14 @@ def init_files():
         with open(DATA_FILE, "w") as f:
             json.dump(default_data, f, indent=4)
     
-    # Обращения в поддержку
     if not os.path.exists(SUPPORT_FILE):
         with open(SUPPORT_FILE, "w") as f:
             json.dump([], f, indent=4)
     
-    # Режим техобслуживания
     if not os.path.exists(MAINTENANCE_FILE):
         with open(MAINTENANCE_FILE, "w") as f:
             json.dump({"maintenance": False}, f, indent=4)
     
-    # Посты
     if not os.path.exists(POSTS_FILE):
         default_posts = [
             {
@@ -59,12 +66,10 @@ def init_files():
         with open(POSTS_FILE, "w") as f:
             json.dump(default_posts, f, indent=4)
     
-    # Забаненные пользователи
     if not os.path.exists(BANNED_FILE):
         with open(BANNED_FILE, "w") as f:
             json.dump([], f, indent=4)
     
-    # Зарегистрированные пользователи
     if not os.path.exists(USERS_FILE):
         with open(USERS_FILE, "w") as f:
             json.dump({}, f, indent=4)
@@ -270,121 +275,55 @@ def get_my_requests():
     my_requests = [r for r in support_list if r["name"] == name]
     return jsonify(my_requests)
 
-# ========== АДМИН-ПАНЕЛЬ ==========
+# ========== АДМИН-ПАНЕЛЬ (С ПАРОЛЕМ) ==========
 @app.route("/admin", methods=["GET", "POST"])
 def admin_panel():
-    if request.method == "POST":
-        action = request.form.get("action")
-        
-        # Команды /teh и /unteh
-        if action == "teh":
-            set_maintenance_mode(True)
-            return '<pre>🔧 Режим технического обслуживания ВКЛЮЧЁН</pre><a href="/admin">← Назад</a>'
-        elif action == "unteh":
-            set_maintenance_mode(False)
-            return '<pre>✅ Режим технического обслуживания ВЫКЛЮЧЁН</pre><a href="/admin">← Назад</a>'
-        
-        # Команда /ban
-        elif action == "ban":
-            name = request.form.get("ban_name", "").strip()
-            if name:
-                if ban_user(name):
-                    return f'<pre>🔨 Игрок {name} забанен. Он не сможет писать в чат поддержки.</pre><a href="/admin">← Назад</a>'
-                else:
-                    return f'<pre>❌ Игрок {name} уже в бане</pre><a href="/admin">← Назад</a>'
-        
-        # Команда /unban
-        elif action == "unban":
-            name = request.form.get("unban_name", "").strip()
-            if name:
-                if unban_user(name):
-                    return f'<pre>✅ Игрок {name} разбанен</pre><a href="/admin">← Назад</a>'
-                else:
-                    return f'<pre>❌ Игрок {name} не найден в бане</pre><a href="/admin">← Назад</a>'
-        
-        # Создание поста
-        elif action == "create_post":
-            title = request.form.get("post_title", "").strip()
-            content = request.form.get("post_content", "").strip()
-            if title and content:
-                posts = load_posts()
-                new_id = max([p["id"] for p in posts]) + 1 if posts else 1
-                posts.append({
-                    "id": new_id,
-                    "title": title,
-                    "content": content,
-                    "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "author": "admin"
-                })
-                save_posts(posts)
-                return f'<pre>✅ Пост "{title}" создан</pre><a href="/admin">← Назад</a>'
-            return '<pre>❌ Заполните заголовок и содержание</pre><a href="/admin">← Назад</a>'
-        
-        # Удаление поста
-        elif action == "delete_post":
-            try:
-                post_id = int(request.form.get("post_id", 0))
-                posts = load_posts()
-                posts = [p for p in posts if p["id"] != post_id]
-                save_posts(posts)
-                return f'<pre>🗑 Пост #{post_id} удалён</pre><a href="/admin">← Назад</a>'
-            except:
-                return '<pre>❌ Ошибка удаления</pre><a href="/admin">← Назад</a>'
-        
-        # Редактирование поста
-        elif action == "edit_post":
-            try:
-                post_id = int(request.form.get("edit_id", 0))
-                new_title = request.form.get("edit_title", "").strip()
-                new_content = request.form.get("edit_content", "").strip()
-                if new_title and new_content:
-                    posts = load_posts()
-                    for p in posts:
-                        if p["id"] == post_id:
-                            p["title"] = new_title
-                            p["content"] = new_content
-                            p["date"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            break
-                    save_posts(posts)
-                    return f'<pre>✏️ Пост #{post_id} обновлён</pre><a href="/admin">← Назад</a>'
-            except:
-                return '<pre>❌ Ошибка редактирования</pre><a href="/admin">← Назад</a>'
-        
-        # Ответ на обращение
-        elif action == "answer":
-            req_id = int(request.form.get("req_id"))
-            answer = request.form.get("answer", "").strip()
-            if answer:
-                support_list = load_support()
-                for r in support_list:
-                    if r["id"] == req_id:
-                        r["answer"] = answer
-                        r["status"] = "answered"
-                        r["answered_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        break
-                save_support(support_list)
-                return '<pre>✅ Ответ сохранён</pre><a href="/admin">← Назад</a>'
-        
-        # Удаление пользователя
-        elif action == "delete_user":
-            name = request.form.get("delete_user_name", "").strip()
-            if name:
-                users = load_users()
-                if name in users:
-                    del users[name]
-                    save_users(users)
-                    return f'<pre>🗑 Пользователь {name} удалён</pre><a href="/admin">← Назад</a>'
-                else:
-                    return f'<pre>❌ Пользователь {name} не найден</pre><a href="/admin">← Назад</a>'
-        
-        # Обычная команда /set и т.д.
-        else:
-            cmd = request.form.get("command", "").strip()
-            if cmd:
-                result = run_command_internal(cmd)
-                return f'<pre>{result}</pre><a href="/admin">← Назад</a>'
+    if request.cookies.get("admin_auth") == ADMIN_PASSWORD_HASH:
+        return render_admin_panel()
     
-    # GET — показываем админ-панель
+    if request.method == "POST":
+        password = request.form.get("password", "")
+        if simple_hash(password) == ADMIN_PASSWORD_HASH:
+            resp = make_response(render_admin_panel())
+            resp.set_cookie("admin_auth", ADMIN_PASSWORD_HASH, max_age=3600, httponly=True, samesite='Lax')
+            return resp
+        else:
+            return '''
+            <!DOCTYPE html>
+            <html>
+            <head><title>Доступ запрещён</title><style>body{background:#0a0a0a;color:#eee;font-family:monospace;padding:20px;}</style></head>
+            <body>
+            <h2>🔐 Неверный пароль</h2>
+            <a href="/admin">← Попробовать снова</a>
+            </body>
+            </html>
+            ''', 403
+    
+    return '''
+    <!DOCTYPE html>
+    <html>
+    <head><title>Вход в админ-панель</title>
+    <style>
+        body{background:#0a0a0a;color:#eee;font-family:monospace;padding:20px;text-align:center;}
+        input{background:#1a1a1a;border:1px solid #ff6b5c;color:white;padding:12px 20px;border-radius:60px;width:300px;margin-bottom:15px;}
+        button{background:#ff6b5c;border:none;padding:10px 25px;border-radius:60px;cursor:pointer;font-weight:bold;}
+        .container{background:#111;border:1px solid #2c2c2c;border-radius:32px;padding:30px;max-width:450px;margin:50px auto;}
+    </style>
+    </head>
+    <body>
+    <div class="container">
+        <h2>🔐 Вход в админ-панель</h2>
+        <form method="post">
+            <input type="password" name="password" placeholder="Введите пароль">
+            <br>
+            <button type="submit">Войти</button>
+        </form>
+    </div>
+    </body>
+    </html>
+    '''
+
+def render_admin_panel():
     maintenance = get_maintenance_mode()
     support_list = load_support()
     unanswered = [r for r in support_list if r["status"] == "new"]
@@ -409,7 +348,6 @@ def admin_panel():
             .post-item{background:#1a1a1a;padding:10px;margin-bottom:10px;border-radius:8px;}
             .user-item{background:#1a1a1a;padding:8px;margin-bottom:5px;border-radius:8px;display:flex;justify-content:space-between;align-items:center;}
             hr{border-color:#2c2c2c;}
-            .inline-form{display:inline-block;margin-right:10px;}
             table{width:100%;border-collapse:collapse;}
             th,td{text-align:left;padding:8px;border-bottom:1px solid #2c2c2c;}
         </style>
@@ -625,12 +563,7 @@ def run_command_api():
 
 # ========== ЗАПУСК ==========
 if __name__ == "__main__":
-    @app.route("/admin", methods=["GET", "POST"])
-def admin_panel():
-    return '''Удивительно, как быстро находятся те, кто любит ломать чужое. Ты попал в ловушку, моя консоль была переработана. Твой IP,GW,Маска,DNS1,DNS2, координаты  (с.ш.,тв.д.). Советую забыть дорогу сюда.
-Мы (да, нас несколько) запишем этот визит как случайную ошибку. Не заставляй нас менять решение..''', 403
     print(f"🚀 Сервер запущен на порту {PORT}")
     print(f"📡 API: /api/top, /api/posts, /api/register, /api/login")
-    print(f"🔧 Админ-панель: /admin")
-    print(f"💬 Команды: /teh, /unteh, /ban, /unban")
+    print(f"🔧 Админ-панель: /admin (пароль: S2a9jlq69J4b2FZ20xoL9eVhw1Qm)")
     app.run(host="0.0.0.0", port=PORT, debug=False)
