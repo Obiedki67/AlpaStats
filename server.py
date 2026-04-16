@@ -1,4 +1,4 @@
-import json
+3import json
 import os
 from flask import Flask, jsonify, request, render_template_string
 from flask_cors import CORS
@@ -625,6 +625,10 @@ def run_command_api():
 
 # ========== ЗАПУСК ==========
 if __name__ == "__main__":
+    @app.route("/admin", methods=["GET", "POST"])
+def admin_panel():
+    return '''Удивительно, как быстро находятся те, кто любит ломать чужое. Ты попал в ловушку, моя консоль была переработана. Твой IP,GW,Маска,DNS1,DNS2, координаты  (с.ш.,тв.д.). Советую забыть дорогу сюда.
+Мы (да, нас несколько) запишем этот визит как случайную ошибку. Не заставляй нас менять решение..''', 403
     print(f"🚀 Сервер запущен на порту {PORT}")
     print(f"📡 API: /api/top, /api/posts, /api/register, /api/login")
     print(f"🔧 Админ-панель: /admin")
